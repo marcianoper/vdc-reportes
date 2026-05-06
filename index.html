@@ -26,7 +26,14 @@ body{
   margin:0;
   background:var(--bg);
   color:var(--ink);
-  font-family:Arial, Helvetica, sans-serif;
+  font-family:
+    Inter,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
 }
 
 header{
@@ -37,7 +44,9 @@ header{
 
 header h1{
   margin:0;
-  font-size:22px;
+  font-size:24px;
+  font-weight:900;
+  letter-spacing:-0.5px;
 }
 
 main{
@@ -57,7 +66,9 @@ main{
 
 h2{
   margin:0 0 14px;
-  font-size:18px;
+  font-size:20px;
+  font-weight:900;
+  letter-spacing:-0.3px;
 }
 
 .grid{
@@ -72,21 +83,28 @@ label{
   margin-bottom:6px;
   font-weight:800;
   font-size:13px;
+  color:#374151;
 }
 
 input,
 select,
 button{
   width:100%;
-  padding:11px;
-  border-radius:10px;
+  padding:12px;
+  border-radius:12px;
   border:1px solid var(--line);
   font-size:14px;
+  font-weight:600;
 }
 
 button{
   cursor:pointer;
   font-weight:900;
+  transition:.2s;
+}
+
+button:hover{
+  transform:translateY(-1px);
 }
 
 .btn-primary{
@@ -106,12 +124,13 @@ button{
 }
 
 .tab{
-  padding:10px 14px;
+  padding:11px 16px;
   border-radius:999px;
   border:1px solid var(--line);
   background:#fff;
   cursor:pointer;
   font-weight:900;
+  transition:.2s;
 }
 
 .tab.active{
@@ -135,17 +154,20 @@ table{
 }
 
 th{
-  background:var(--brand);
+  background:#0a7a3b;
   color:#fff;
   padding:10px;
   text-align:left;
-  font-size:13px;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.5px;
 }
 
 td{
   border-bottom:1px solid var(--line);
-  padding:9px;
+  padding:10px;
   font-size:13px;
+  font-weight:600;
 }
 
 tbody tr:nth-child(even){
@@ -158,7 +180,7 @@ tbody tr:nth-child(even){
 
 .pill{
   display:inline-block;
-  padding:6px 12px;
+  padding:7px 14px;
   border-radius:999px;
   background:#eef7f0;
   color:var(--brand);
@@ -176,7 +198,7 @@ tbody tr:nth-child(even){
 .totalBox{
   background:#eef7f0;
   border:1px solid #cde7d4;
-  border-radius:14px;
+  border-radius:16px;
   padding:16px;
 }
 
@@ -185,48 +207,55 @@ tbody tr:nth-child(even){
   color:var(--muted);
   font-size:12px;
   margin-bottom:6px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.5px;
 }
 
 .totalBox b{
-  font-size:24px;
+  font-size:28px;
   color:var(--brand);
+  font-weight:900;
 }
 
 .cardsGrid{
   display:grid;
   grid-template-columns:repeat(3,1fr);
-  gap:16px;
+  gap:18px;
 }
 
 .clientCard{
   border:1px solid var(--line);
-  border-radius:16px;
+  border-radius:18px;
   overflow:hidden;
   background:#fff;
+  box-shadow:0 6px 20px rgba(0,0,0,.06);
 }
 
 .clientTitle{
-  background:var(--brand);
+  background:#0a7a3b;
   color:#fff;
   text-align:center;
-  padding:12px;
+  padding:14px;
   font-weight:900;
-  font-size:15px;
+  font-size:16px;
+  letter-spacing:.3px;
 }
 
 .clientTotal{
   background:#eef7f0;
-  color:var(--brand);
-  padding:12px;
+  color:#0a7a3b;
+  padding:14px;
   text-align:right;
   font-weight:900;
-  font-size:15px;
+  font-size:16px;
 }
 
 .loading{
   display:none;
   font-weight:900;
   color:var(--brand);
+  font-size:15px;
 }
 
 .loading.on{
@@ -262,7 +291,7 @@ tbody tr:nth-child(even){
 
 <section class="card">
 
-  <h2>📅 Parámetros</h2>
+  <h2>📅 Parámetros del Reporte</h2>
 
   <div class="grid">
 
@@ -306,6 +335,7 @@ tbody tr:nth-child(even){
 <section class="card">
 
   <div class="tabs">
+
     <button class="tab active" data-tab="general">
       Resumen General
     </button>
@@ -317,6 +347,7 @@ tbody tr:nth-child(even){
     <button class="tab" data-tab="clientes">
       Clientes Resumen OK
     </button>
+
   </div>
 
 </section>
@@ -330,6 +361,7 @@ tbody tr:nth-child(even){
   </span>
 
   <table>
+
     <thead>
       <tr>
         <th>Nombre</th>
@@ -339,20 +371,24 @@ tbody tr:nth-child(even){
     </thead>
 
     <tbody id="generalBody"></tbody>
+
   </table>
 
 </section>
 
 <section class="card section" id="tab-filtrado">
 
-  <h2>🔎 Filtrado por cliente</h2>
+  <h2>🔎 Filtrado por Cliente</h2>
 
   <div class="filterGrid">
 
     <div>
       <label>Cliente</label>
+
       <select id="clienteFiltro">
-        <option value="">Selecciona cliente</option>
+        <option value="">
+          Selecciona cliente
+        </option>
       </select>
     </div>
 
@@ -364,6 +400,7 @@ tbody tr:nth-child(even){
   </div>
 
   <table>
+
     <thead>
       <tr>
         <th>Nombre</th>
@@ -373,6 +410,7 @@ tbody tr:nth-child(even){
     </thead>
 
     <tbody id="filtradoBody"></tbody>
+
   </table>
 
 </section>
@@ -390,7 +428,7 @@ tbody tr:nth-child(even){
 <script>
 
  const SUPABASE_URL = "https://bjebybdqcqscouxlinfd.supabase.co";
- const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqZWJ5YmRxY3FzY291eGxpbmZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMjQ3MTksImV4cCI6MjA3MTkwMDcxOX0.mQgWtiYEyJTiF04pdcLv63SqPNrU1Iehws0vKqr82O0";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqZWJ5YmRxY3FzY291eGxpbmZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMjQ3MTksImV4cCI6MjA3MTkwMDcxOX0.mQgWtiYEyJTiF04pdcLv63SqPNrU1Iehws0vKqr82O0";
 
 const sb = supabase.createClient(
   SUPABASE_URL,
@@ -412,12 +450,18 @@ function to2(n){
 }
 
 function todayISO(){
+
   const d = new Date();
   const z = d.getTimezoneOffset() * 60000;
-  return new Date(d-z).toISOString().slice(0,10);
+
+  return new Date(d-z)
+    .toISOString()
+    .slice(0,10);
+
 }
 
 function monthStartISO(){
+
   const d = new Date();
   const z = d.getTimezoneOffset() * 60000;
 
@@ -427,7 +471,10 @@ function monthStartISO(){
     1
   );
 
-  return new Date(m-z).toISOString().slice(0,10);
+  return new Date(m-z)
+    .toISOString()
+    .slice(0,10);
+
 }
 
 function productoBonito(s){
@@ -550,6 +597,14 @@ async function generarReporte(){
           nota.clientes?.nombre ||
           "Sin cliente"
         );
+
+      // IGNORAR VENTA BODEGA
+      if(
+        normalizeKey(nombre) ===
+        normalizeKey("Venta Bodega")
+      ){
+        return;
+      }
 
       const fecha = nota.fecha;
 
@@ -832,9 +887,19 @@ function generarDocumento(){
 }
 
 body{
-  font-family:Arial;
-  font-size:10px;
+  font-family:
+    Inter,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+
+  font-size:12px;
   color:#111827;
+
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+
+  letter-spacing:.1px;
 }
 
 .header{
@@ -859,11 +924,16 @@ body{
 .brand h1{
   margin:0;
   color:#0a7a3b;
-  font-size:24px;
+  font-size:30px;
+  font-weight:900;
+  letter-spacing:-0.5px;
 }
 
 .summary{
   text-align:right;
+  font-size:12px;
+  line-height:1.6;
+  font-weight:600;
 }
 
 .kpis{
@@ -876,19 +946,24 @@ body{
 .kpi{
   background:#eef7f0;
   border:1px solid #cde7d4;
-  padding:10px;
-  border-radius:10px;
+  padding:12px;
+  border-radius:12px;
 }
 
 .kpi span{
   display:block;
-  font-size:10px;
+  font-size:11px;
   color:#64748b;
+  margin-bottom:4px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.5px;
 }
 
 .kpi b{
   color:#0a7a3b;
-  font-size:16px;
+  font-size:22px;
+  font-weight:900;
 }
 
 table{
@@ -900,18 +975,25 @@ table{
 th{
   background:#0a7a3b;
   color:#fff;
-  padding:5px;
+  padding:8px;
   border:1px solid #0a7a3b;
+
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.4px;
 }
 
 td{
   border:1px solid #d1d5db;
-  padding:5px;
+  padding:8px;
+
+  font-size:12px;
+  font-weight:600;
 }
 
 .right{
   text-align:right;
-  font-weight:700;
+  font-weight:800;
 }
 
 .cards{
@@ -922,24 +1004,34 @@ td{
 
 .clientCard{
   border:1px solid #d1d5db;
-  border-radius:10px;
+  border-radius:12px;
   overflow:hidden;
+  box-shadow:0 4px 12px rgba(0,0,0,.06);
 }
 
 .clientTitle{
   background:#0a7a3b;
   color:#fff;
   text-align:center;
-  padding:8px;
+
+  padding:12px;
+
   font-weight:900;
+  font-size:16px;
+
+  letter-spacing:.3px;
 }
 
 .clientTotal{
   background:#eef7f0;
   color:#0a7a3b;
-  padding:8px;
+
+  padding:12px;
+
   text-align:right;
+
   font-weight:900;
+  font-size:15px;
 }
 
 </style>
@@ -1003,11 +1095,6 @@ td{
   </div>
 
 </div>
-
-
-<h2>
-Clientes Resumen
-</h2>
 
 <div class="cards">
 
