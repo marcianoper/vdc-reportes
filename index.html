@@ -1004,37 +1004,6 @@ td{
 
 </div>
 
-<h2>
-Resumen General
-</h2>
-
-<table>
-
-<thead>
-<tr>
-  <th>Nombre</th>
-  <th>Fecha</th>
-  <th class="right">Kilos</th>
-</tr>
-</thead>
-
-<tbody>
-
-${[...REPORTE]
-.sort((a,b)=> b.kilos - a.kilos)
-.map(r=>`
-
-<tr>
-  <td>${r.nombre}</td>
-  <td>${r.fecha}</td>
-  <td class="right">${to2(r.kilos)}</td>
-</tr>
-
-`).join("")}
-
-</tbody>
-
-</table>
 
 <h2>
 Clientes Resumen
