@@ -501,6 +501,26 @@ function normalizeKey(s){
     .replace(/\s+/g," ");
 
 }
+  const KG_PROMEDIO_CABEZA = 15.5;
+
+function productoEsCabeza(producto){
+
+  const p = normalizeKey(producto);
+
+  return (
+    p.includes("cabeza")
+  );
+
+}
+
+function piezasCabeza(kilos){
+
+  return Math.round(
+    Number(kilos || 0) /
+    KG_PROMEDIO_CABEZA
+  );
+
+}
 
 async function cargarProductos(){
 
@@ -668,8 +688,25 @@ function renderGeneral(){
       a + Number(b.kilos || 0)
     ,0);
 
+  const productoActual =
+    $("#productoSelect").value;
+
+  let piezasTxt = "";
+
+  if(
+    productoActual &&
+    productoEsCabeza(productoActual)
+  ){
+
+    piezasTxt =
+      ` · Piezas estimadas: ${
+        piezasCabeza(totalKg)
+      } cabezas`;
+
+  }
+
   $("#generalInfo").textContent =
-    `Registros: ${REPORTE.length} · Total: ${to2(totalKg)} kg`;
+    `Registros: ${REPORTE.length} · Total: ${to2(totalKg)} kg${piezasTxt}`;
 
   $("#generalBody").innerHTML =
     REPORTE.map(r=>`
@@ -683,7 +720,6 @@ function renderGeneral(){
     `).join("");
 
 }
-
 function renderClientesSelect(){
 
   const clientes =
@@ -718,8 +754,27 @@ function renderFiltrado(){
       a + Number(b.kilos || 0)
     ,0);
 
-  $("#totalFiltrado").textContent =
+  const productoActual =
+    $("#productoSelect").value;
+
+  let texto =
     `${to2(total)} kg`;
+
+  if(
+    productoActual &&
+    productoEsCabeza(productoActual)
+  ){
+
+    texto += `
+     · ${
+       piezasCabeza(total)
+     } cabezas aprox.
+    `;
+
+  }
+
+  $("#totalFiltrado").textContent =
+    texto;
 
   $("#filtradoBody").innerHTML =
     rows.map(r=>`
@@ -808,11 +863,34 @@ function renderCards(){
 
         </table>
 
-        <div class="clientTotal">
-          TOTAL: ${to2(total)} kg
-        </div>
+      <div class="clientTotal">
 
+  TOTAL:
+  ${to2(total)} kg
+
+  ${
+    productoEsCabeza(
+      $("#productoSelect").value
+    )
+
+    ? `
+
+      <div style="
+        margin-top:6px;
+        font-size:14px;
+        color:#166534;
+      ">
+        ${piezasCabeza(total)}
+        cabezas aprox.
       </div>
+
+    `
+
+    : ""
+
+  }
+
+</div>
 
       `;
 
@@ -871,6 +949,12 @@ function generarDocumento(){
     .reduce((a,b)=>
       a + Number(b.kilos || 0)
     ,0);
+  
+  const mostrarPiezas =
+  productoEsCabeza(producto);
+
+const piezasTotales =
+  piezasCabeza(totalKg);
 
   const html = `
 <!DOCTYPE html>
@@ -1080,9 +1164,20 @@ td{
   </div>
 
   <div class="kpi">
-    <span>Total kilos</span>
-    <b>${to2(totalKg)} kg</b>
-  </div>
+  <span>Total kilos</span>
+  <b>${to2(totalKg)} kg</b>
+</div>
+
+${
+  mostrarPiezas
+  ? `
+    <div class="kpi">
+      <span>Piezas estimadas</span>
+      <b>${piezasTotales}</b>
+    </div>
+  `
+  : ""
+}
 
   <div class="kpi">
     <span>Producto</span>
@@ -1142,7 +1237,23 @@ ${to2(r.kilos)}
 </table>
 
 <div class="clientTotal">
+
 TOTAL: ${to2(total)} kg
+
+${
+  mostrarPiezas
+  ? `
+    <div style="
+      margin-top:6px;
+      font-size:13px;
+    ">
+      ${piezasCabeza(total)}
+      cabezas aprox.
+    </div>
+  `
+  : ""
+}
+
 </div>
 
 </div>
