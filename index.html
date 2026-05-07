@@ -435,6 +435,17 @@ const sb = supabase.createClient(
   SUPABASE_ANON_KEY
 );
 
+ const SUPABASE_URL = "https://eqynjddcosvdqjzztznn.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeW5qZGRjb3N2ZHFqenp0em5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzYwMzIsImV4cCI6MjA3MTcxMjAzMn0.Q51wsGelUvxRfqsMYRY5JduCGyZ7s6AzOhqsRf3kOhk";
+
+const sbMostrador = supabase.createClient(
+  SUPABASE_MOSTRADOR_URL,
+  SUPABASE_MOSTRADOR_ANON_KEY
+);
+
+const T_ENVIADOS_MOSTRADOR = "mostrador_enviados";
+const T_DEVUELTOS_MOSTRADOR = "mostrador_devueltos";
+
 const LOGO_URL =
 "https://marcianoper.github.io/vdc-central/logo.png";
 
@@ -564,6 +575,12 @@ async function generarReporte(){
 
   try{
 
+    const mapa = new Map();
+
+    // =========================
+    // 1. NOTAS A CRÉDITO
+    // =========================
+
     const { data:notas, error:notasError } = await sb
       .from("notas_credito")
       .select(`
@@ -578,66 +595,120 @@ async function generarReporte(){
 
     const ids = (notas || []).map(n=>n.id);
 
-    if(!ids.length){
-      alert("No hay notas");
-      return;
+    if(ids.length){
+
+      let query = sb
+        .from("notas_detalle")
+        .select(`
+          nota_id,
+          producto,
+          cantidad
+        `)
+        .in("nota_id", ids);
+
+      if(producto){
+        query = query.eq("producto", producto);
+      }
+
+      const {
+        data:detalles,
+        error:detError
+      } = await query;
+
+      if(detError) throw detError;
+
+      (detalles || []).forEach(d=>{
+
+        const nota =
+          notas.find(n=>n.id === d.nota_id);
+
+        if(!nota) return;
+
+        const nombre =
+          productoBonito(
+            nota.clientes?.nombre ||
+            "Sin cliente"
+          );
+
+        if(
+          normalizeKey(nombre) ===
+          normalizeKey("Venta Bodega")
+        ){
+          return;
+        }
+
+        const fecha = nota.fecha;
+        const kilos = Number(d.cantidad || 0);
+
+        const key =
+          `${normalizeKey(nombre)}|${fecha}`;
+
+        if(!mapa.has(key)){
+
+          mapa.set(key,{
+            nombre,
+            fecha,
+            kilos:0
+          });
+
+        }
+
+        mapa.get(key).kilos += kilos;
+
+      });
+
     }
 
-    let query = sb
-      .from("notas_detalle")
-      .select(`
-        nota_id,
-        producto,
-        cantidad
-      `)
-      .in("nota_id", ids);
+    // =========================
+    // 2. VENTA MOSTRADOR GENERAL
+    // =========================
+
+    let qEnv = sbMostrador
+      .from(T_ENVIADOS_MOSTRADOR)
+      .select("fecha, producto, kilos")
+      .gte("fecha", desde)
+      .lte("fecha", hasta);
+
+    let qDev = sbMostrador
+      .from(T_DEVUELTOS_MOSTRADOR)
+      .select("fecha, producto, kilos")
+      .gte("fecha", desde)
+      .lte("fecha", hasta);
 
     if(producto){
-      query = query.eq("producto", producto);
+      qEnv = qEnv.eq("producto", producto);
+      qDev = qDev.eq("producto", producto);
     }
 
     const {
-      data:detalles,
-      error:detError
-    } = await query;
+      data:envios,
+      error:envError
+    } = await qEnv;
 
-    if(detError) throw detError;
+    if(envError) throw envError;
 
-    const mapa = new Map();
+    const {
+      data:devueltos,
+      error:devError
+    } = await qDev;
 
-    (detalles || []).forEach(d=>{
+    if(devError) throw devError;
 
-      const nota =
-        notas.find(n=>n.id === d.nota_id);
+    const nombreMostrador =
+      "Venta Mostrador General";
 
-      if(!nota) return;
+    (envios || []).forEach(r=>{
 
-      const nombre =
-        productoBonito(
-          nota.clientes?.nombre ||
-          "Sin cliente"
-        );
-
-      // IGNORAR VENTA BODEGA
-      if(
-        normalizeKey(nombre) ===
-        normalizeKey("Venta Bodega")
-      ){
-        return;
-      }
-
-      const fecha = nota.fecha;
-
-      const kilos =
-        Number(d.cantidad || 0);
+      const fecha = r.fecha;
+      const kilos = Number(r.kilos || 0);
 
       const key =
-        `${normalizeKey(nombre)}|${fecha}`;
+        `${normalizeKey(nombreMostrador)}|${fecha}`;
 
       if(!mapa.has(key)){
 
         mapa.set(key,{
-          nombre,
+          nombre:nombreMostrador,
           fecha,
           kilos:0
         });
@@ -648,14 +719,41 @@ async function generarReporte(){
 
     });
 
+    (devueltos || []).forEach(r=>{
+
+      const fecha = r.fecha;
+      const kilos = Number(r.kilos || 0);
+
+      const key =
+        `${normalizeKey(nombreMostrador)}|${fecha}`;
+
+      if(!mapa.has(key)){
+
+        mapa.set(key,{
+          nombre:nombreMostrador,
+          fecha,
+          kilos:0
+        });
+
+      }
+
+      mapa.get(key).kilos -= kilos;
+
+    });
+
     REPORTE = Array
       .from(mapa.values())
+      .filter(r=>Number(r.kilos || 0) !== 0)
       .map(r=>({
         nombre:r.nombre,
         fecha:r.fecha,
         kilos:Number(to2(r.kilos))
       }))
       .sort((a,b)=> b.kilos - a.kilos);
+
+    if(!REPORTE.length){
+      alert("No hay datos en ese rango");
+    }
 
     renderAll();
 
