@@ -827,6 +827,9 @@ function renderCards(){
           a + Number(b.kilos || 0)
         ,0);
 
+      const mostrarPiezas =
+        productoEsCabeza($("#productoSelect").value);
+
       return `
 
       <div class="clientCard">
@@ -863,34 +866,27 @@ function renderCards(){
 
         </table>
 
-      <div class="clientTotal">
+        <div class="clientTotal">
 
-  TOTAL:
-  ${to2(total)} kg
+          TOTAL: ${to2(total)} kg
 
-  ${
-    productoEsCabeza(
-      $("#productoSelect").value
-    )
+          ${
+            mostrarPiezas
+            ? `
+              <div style="
+                margin-top:6px;
+                font-size:14px;
+                color:#166534;
+              ">
+                ${piezasCabeza(total)} cabezas aprox.
+              </div>
+            `
+            : ""
+          }
 
-    ? `
+        </div>
 
-      <div style="
-        margin-top:6px;
-        font-size:14px;
-        color:#166534;
-      ">
-        ${piezasCabeza(total)}
-        cabezas aprox.
       </div>
-
-    `
-
-    : ""
-
-  }
-
-</div>
 
       `;
 
