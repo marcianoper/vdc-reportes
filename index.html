@@ -578,6 +578,44 @@ async function generarReporte(){
 
     const mapa = new Map();
 
+    function agregarAlMapa(nombre, fecha, kilos){
+
+      const key =
+        `${normalizeKey(nombre)}|${fecha}`;
+
+      if(!mapa.has(key)){
+        mapa.set(key,{
+          nombre,
+          fecha,
+          kilos:0
+        });
+      }
+
+      mapa.get(key).kilos += Number(kilos || 0);
+
+    }
+
+    function productoCoincide(productoRegistro){
+
+      if(!producto) return true;
+
+      const pFiltro = normalizeKey(producto);
+      const pRegistro = normalizeKey(productoRegistro);
+
+      // Si seleccionas Cabeza, acepta todas las variantes
+      if(productoEsCabeza(producto)){
+        return productoEsCabeza(productoRegistro);
+      }
+
+      // Coincidencia exacta o flexible
+      return (
+        pRegistro === pFiltro ||
+        pRegistro.includes(pFiltro) ||
+        pFiltro.includes(pRegistro)
+      );
+
+    }
+
     // =========================
     // 1. NOTAS A CRÉDITO
     // =========================
@@ -598,7 +636,7 @@ async function generarReporte(){
 
     if(ids.length){
 
-      let query = sb
+      const { data:detalles, error:detError } = await sb
         .from("notas_detalle")
         .select(`
           nota_id,
@@ -607,18 +645,13 @@ async function generarReporte(){
         `)
         .in("nota_id", ids);
 
-      if(producto){
-        query = query.eq("producto", producto);
-      }
-
-      const {
-        data:detalles,
-        error:detError
-      } = await query;
-
       if(detError) throw detError;
 
       (detalles || []).forEach(d=>{
+
+        if(!productoCoincide(d.producto)){
+          return;
+        }
 
         const nota =
           notas.find(n=>n.id === d.nota_id);
@@ -638,23 +671,11 @@ async function generarReporte(){
           return;
         }
 
-        const fecha = nota.fecha;
-        const kilos = Number(d.cantidad || 0);
-
-        const key =
-          `${normalizeKey(nombre)}|${fecha}`;
-
-        if(!mapa.has(key)){
-
-          mapa.set(key,{
-            nombre,
-            fecha,
-            kilos:0
-          });
-
-        }
-
-        mapa.get(key).kilos += kilos;
+        agregarAlMapa(
+          nombre,
+          nota.fecha,
+          Number(d.cantidad || 0)
+        );
 
       });
 
@@ -664,34 +685,19 @@ async function generarReporte(){
     // 2. VENTA MOSTRADOR GENERAL
     // =========================
 
-    let qEnv = sbMostrador
-      .from(T_ENVIADOS_MOSTRADOR)
+    const { data:envios, error:envError } = await sbMostrador
+      .from("mostrador_enviados")
       .select("fecha, producto, kilos")
       .gte("fecha", desde)
       .lte("fecha", hasta);
-
-    let qDev = sbMostrador
-      .from(T_DEVUELTOS_MOSTRADOR)
-      .select("fecha, producto, kilos")
-      .gte("fecha", desde)
-      .lte("fecha", hasta);
-
-    if(producto){
-      qEnv = qEnv.eq("producto", producto);
-      qDev = qDev.eq("producto", producto);
-    }
-
-    const {
-      data:envios,
-      error:envError
-    } = await qEnv;
 
     if(envError) throw envError;
 
-    const {
-      data:devueltos,
-      error:devError
-    } = await qDev;
+    const { data:devueltos, error:devError } = await sbMostrador
+      .from("mostrador_devueltos")
+      .select("fecha, producto, kilos")
+      .gte("fecha", desde)
+      .lte("fecha", hasta);
 
     if(devError) throw devError;
 
@@ -700,45 +706,29 @@ async function generarReporte(){
 
     (envios || []).forEach(r=>{
 
-      const fecha = r.fecha;
-      const kilos = Number(r.kilos || 0);
-
-      const key =
-        `${normalizeKey(nombreMostrador)}|${fecha}`;
-
-      if(!mapa.has(key)){
-
-        mapa.set(key,{
-          nombre:nombreMostrador,
-          fecha,
-          kilos:0
-        });
-
+      if(!productoCoincide(r.producto)){
+        return;
       }
 
-      mapa.get(key).kilos += kilos;
+      agregarAlMapa(
+        nombreMostrador,
+        r.fecha,
+        Number(r.kilos || 0)
+      );
 
     });
 
     (devueltos || []).forEach(r=>{
 
-      const fecha = r.fecha;
-      const kilos = Number(r.kilos || 0);
-
-      const key =
-        `${normalizeKey(nombreMostrador)}|${fecha}`;
-
-      if(!mapa.has(key)){
-
-        mapa.set(key,{
-          nombre:nombreMostrador,
-          fecha,
-          kilos:0
-        });
-
+      if(!productoCoincide(r.producto)){
+        return;
       }
 
-      mapa.get(key).kilos -= kilos;
+      agregarAlMapa(
+        nombreMostrador,
+        r.fecha,
+        -Number(r.kilos || 0)
+      );
 
     });
 
