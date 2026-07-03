@@ -73,7 +73,7 @@ h2{
 
 .grid{
   display:grid;
-  grid-template-columns:1fr 1fr 1fr auto auto;
+  grid-template-columns:1fr 1fr 1fr auto auto auto;
   gap:10px;
   align-items:end;
 }
@@ -324,6 +324,12 @@ tbody tr:nth-child(even){
       </button>
     </div>
 
+    <div>
+      <button class="btn-primary" id="btnDescargar">
+        Descargar Documento
+      </button>
+    </div>
+
   </div>
 
   <p class="loading" id="loading">
@@ -470,6 +476,30 @@ function escapeHtml(value){
     .replace(/>/g,"&gt;")
     .replace(/"/g,"&quot;")
     .replace(/'/g,"&#039;");
+}
+
+function limpiarNombreArchivo(value){
+  return String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-zA-Z0-9_-]+/g,"_")
+    .replace(/^_+|_+$/g,"")
+    .slice(0,80) || "Reporte";
+}
+
+function descargarArchivoHTML(nombreArchivo, contenidoHTML){
+  const blob = new Blob([contenidoHTML], { type:"text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(()=> URL.revokeObjectURL(url), 1000);
 }
 
 function nextDateISO(iso){
@@ -1129,7 +1159,7 @@ function renderCards(){
 
 }
 
-function generarDocumento(){
+function generarDocumento(modo = "imprimir"){
 
   if(!REPORTE.length){
     alert("Primero genera un reporte");
@@ -1148,6 +1178,12 @@ function generarDocumento(){
 
   const clienteSeleccionado =
     $("#clienteFiltro").value;
+
+  const nombreBase = clienteSeleccionado
+    ? `Reporte_${limpiarNombreArchivo(clienteSeleccionado)}_${desde}_${hasta}`
+    : `Reporte_Clientes_${desde}_${hasta}`;
+
+  const nombreArchivo = `${nombreBase}.html`;
 
   const reporteDocumento = clienteSeleccionado
     ? REPORTE.filter(r=>r.nombre === clienteSeleccionado)
@@ -1580,6 +1616,11 @@ ${clienteSeleccionado ? `
 </html>
 `;
 
+  if(modo === "descargar"){
+    descargarArchivoHTML(nombreArchivo, html);
+    return;
+  }
+
   const win =
     window.open(
       "",
@@ -1634,7 +1675,13 @@ $("#btnGenerar")
 $("#btnDocumento")
 .addEventListener(
   "click",
-  generarDocumento
+  ()=> generarDocumento("imprimir")
+);
+
+$("#btnDescargar")
+.addEventListener(
+  "click",
+  ()=> generarDocumento("descargar")
 );
 
 $("#clienteFiltro")
