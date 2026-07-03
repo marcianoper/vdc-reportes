@@ -405,6 +405,7 @@ tbody tr:nth-child(even){
       <tr>
         <th>Nombre</th>
         <th>Fecha</th>
+        <th>Detalle de nota</th>
         <th class="right">Kilos</th>
       </tr>
     </thead>
@@ -454,11 +455,48 @@ const STORE_NAME =
 "Carnes y Vísceras del Centro";
 
 let REPORTE = [];
+let REPORTE_DETALLE = [];
 
 const $ = s => document.querySelector(s);
 
 function to2(n){
   return Number(n || 0).toFixed(2);
+}
+
+function escapeHtml(value){
+  return String(value ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+function nextDateISO(iso){
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  const z = d.getTimezoneOffset() * 60000;
+  return new Date(d-z).toISOString().slice(0,10);
+}
+
+async function fetchAll(builder, pageSize = 1000){
+  let from = 0;
+  let rows = [];
+
+  while(true){
+    const { data, error } = await builder.range(from, from + pageSize - 1);
+    if(error) throw error;
+
+    rows = rows.concat(data || []);
+
+    if(!data || data.length < pageSize){
+      break;
+    }
+
+    from += pageSize;
+  }
+
+  return rows;
 }
 
 function todayISO(){
@@ -577,6 +615,7 @@ async function generarReporte(){
   try{
 
     const mapa = new Map();
+    const detallesReporte = [];
 
     function agregarAlMapa(nombre, fecha, kilos){
 
@@ -592,6 +631,26 @@ async function generarReporte(){
       }
 
       mapa.get(key).kilos += Number(kilos || 0);
+
+    }
+
+    function agregarDetalle({
+      origen,
+      notaId,
+      nombre,
+      fecha,
+      producto,
+      kilos
+    }){
+
+      detallesReporte.push({
+        origen,
+        notaId: notaId || "",
+        nombre,
+        fecha,
+        producto: productoBonito(producto || "Sin producto"),
+        kilos:Number(kilos || 0)
+      });
 
     }
 
@@ -620,7 +679,8 @@ async function generarReporte(){
     // 1. NOTAS A CRÉDITO
     // =========================
 
-    const { data:notas, error:notasError } = await sb
+    const notas = await fetchAll(
+      sb
       .from("notas_credito")
       .select(`
         id,
@@ -628,56 +688,75 @@ async function generarReporte(){
         clientes(nombre)
       `)
       .gte("fecha", desde)
-      .lte("fecha", hasta);
-
-    if(notasError) throw notasError;
+      .lt("fecha", nextDateISO(hasta))
+      .order("fecha", { ascending:false })
+    );
 
     const ids = (notas || []).map(n=>n.id);
+    const notasPorId = new Map(
+      (notas || []).map(n=>[n.id,n])
+    );
 
     if(ids.length){
 
-      const { data:detalles, error:detError } = await sb
-        .from("notas_detalle")
-        .select(`
-          nota_id,
-          producto,
-          cantidad
-        `)
-        .in("nota_id", ids);
+      for(let i=0; i<ids.length; i+=500){
 
-      if(detError) throw detError;
+        const bloqueIds = ids.slice(i, i + 500);
 
-      (detalles || []).forEach(d=>{
-
-        if(!productoCoincide(d.producto)){
-          return;
-        }
-
-        const nota =
-          notas.find(n=>n.id === d.nota_id);
-
-        if(!nota) return;
-
-        const nombre =
-          productoBonito(
-            nota.clientes?.nombre ||
-            "Sin cliente"
-          );
-
-        if(
-          normalizeKey(nombre) ===
-          normalizeKey("Venta Bodega")
-        ){
-          return;
-        }
-
-        agregarAlMapa(
-          nombre,
-          nota.fecha,
-          Number(d.cantidad || 0)
+        const detalles = await fetchAll(
+          sb
+          .from("notas_detalle")
+          .select(`
+            nota_id,
+            producto,
+            cantidad
+          `)
+          .in("nota_id", bloqueIds)
         );
 
-      });
+        (detalles || []).forEach(d=>{
+
+          if(!productoCoincide(d.producto)){
+            return;
+          }
+
+          const nota = notasPorId.get(d.nota_id);
+
+          if(!nota) return;
+
+          const nombre =
+            productoBonito(
+              nota.clientes?.nombre ||
+              "Sin cliente"
+            );
+
+          if(
+            normalizeKey(nombre) ===
+            normalizeKey("Venta Bodega")
+          ){
+            return;
+          }
+
+          const kilos = Number(d.cantidad || 0);
+
+          agregarAlMapa(
+            nombre,
+            nota.fecha,
+            kilos
+          );
+
+          agregarDetalle({
+            origen:"Nota crédito",
+            notaId:d.nota_id,
+            nombre,
+            fecha:nota.fecha,
+            producto:d.producto,
+            kilos
+          });
+
+        });
+
+      }
 
     }
 
@@ -685,21 +764,23 @@ async function generarReporte(){
     // 2. VENTA MOSTRADOR GENERAL
     // =========================
 
-    const { data:envios, error:envError } = await sbMostrador
+    const envios = await fetchAll(
+      sbMostrador
       .from("mostrador_enviados")
       .select("fecha, producto, kilos")
       .gte("fecha", desde)
-      .lte("fecha", hasta);
+      .lt("fecha", nextDateISO(hasta))
+      .order("fecha", { ascending:false })
+    );
 
-    if(envError) throw envError;
-
-    const { data:devueltos, error:devError } = await sbMostrador
+    const devueltos = await fetchAll(
+      sbMostrador
       .from("mostrador_devueltos")
       .select("fecha, producto, kilos")
       .gte("fecha", desde)
-      .lte("fecha", hasta);
-
-    if(devError) throw devError;
+      .lt("fecha", nextDateISO(hasta))
+      .order("fecha", { ascending:false })
+    );
 
     const nombreMostrador =
       "Venta Mostrador General";
@@ -710,11 +791,22 @@ async function generarReporte(){
         return;
       }
 
+      const kilos = Number(r.kilos || 0);
+
       agregarAlMapa(
         nombreMostrador,
         r.fecha,
-        Number(r.kilos || 0)
+        kilos
       );
+
+      agregarDetalle({
+        origen:"Mostrador enviado",
+        notaId:"",
+        nombre:nombreMostrador,
+        fecha:r.fecha,
+        producto:r.producto,
+        kilos
+      });
 
     });
 
@@ -724,13 +816,32 @@ async function generarReporte(){
         return;
       }
 
+      const kilos = -Number(r.kilos || 0);
+
       agregarAlMapa(
         nombreMostrador,
         r.fecha,
-        -Number(r.kilos || 0)
+        kilos
       );
 
+      agregarDetalle({
+        origen:"Mostrador devuelto",
+        notaId:"",
+        nombre:nombreMostrador,
+        fecha:r.fecha,
+        producto:r.producto,
+        kilos
+      });
+
     });
+
+    REPORTE_DETALLE = detallesReporte
+      .filter(r=>Number(r.kilos || 0) !== 0)
+      .sort((a,b)=>{
+        const fc = String(b.fecha).localeCompare(String(a.fecha));
+        if(fc !== 0) return fc;
+        return String(a.producto).localeCompare(String(b.producto),"es");
+      });
 
     REPORTE = Array
       .from(mapa.values())
@@ -772,7 +883,7 @@ function renderAll(){
 
 function renderGeneral(){
 
-  const totalKg = REPORTE
+  const totalKg = reporteDocumento
     .reduce((a,b)=>
       a + Number(b.kilos || 0)
     ,0);
@@ -838,6 +949,10 @@ function renderFiltrado(){
     ? REPORTE.filter(r=>r.nombre === cliente)
     : [];
 
+  const detalles = cliente
+    ? REPORTE_DETALLE.filter(r=>r.nombre === cliente)
+    : [];
+
   const total = rows
     .reduce((a,b)=>
       a + Number(b.kilos || 0)
@@ -854,27 +969,58 @@ function renderFiltrado(){
     productoEsCabeza(productoActual)
   ){
 
-    texto += `
-     · ${
-       piezasCabeza(total)
-     } cabezas aprox.
-    `;
+    texto += ` · ${piezasCabeza(total)} cabezas aprox.`;
 
   }
 
   $("#totalFiltrado").textContent =
     texto;
 
+  const detallesPorFecha = {};
+
+  detalles.forEach(d=>{
+    const key = d.fecha;
+    if(!detallesPorFecha[key]){
+      detallesPorFecha[key] = [];
+    }
+    detallesPorFecha[key].push(d);
+  });
+
   $("#filtradoBody").innerHTML =
-    rows.map(r=>`
+    rows
+    .sort((a,b)=> String(b.fecha).localeCompare(String(a.fecha)))
+    .map(r=>{
+
+      const dets = detallesPorFecha[r.fecha] || [];
+
+      const detalleHtml = dets.length
+        ? `
+          <div class="detalleNota">
+            ${dets.map(d=>`
+              <div class="detalleNotaHeader">
+                <span>${escapeHtml(d.producto)}</span>
+                <span class="detalleMini">
+                  ${escapeHtml(d.origen)}${d.notaId ? " · Nota " + escapeHtml(d.notaId) : ""}
+                </span>
+                <span>${to2(d.kilos)} kg</span>
+              </div>
+            `).join("")}
+          </div>
+        `
+        : `<span class="detalleMini">Sin detalle disponible</span>`;
+
+      return `
 
       <tr>
-        <td>${r.nombre}</td>
-        <td>${r.fecha}</td>
+        <td>${escapeHtml(r.nombre)}</td>
+        <td>${escapeHtml(r.fecha)}</td>
+        <td>${detalleHtml}</td>
         <td class="right">${to2(r.kilos)}</td>
       </tr>
 
-    `).join("");
+    `;
+
+    }).join("");
 
 }
 
@@ -1000,9 +1146,25 @@ function generarDocumento(){
     $("#productoSelect").value ||
     "Todos";
 
+  const clienteSeleccionado =
+    $("#clienteFiltro").value;
+
+  const reporteDocumento = clienteSeleccionado
+    ? REPORTE.filter(r=>r.nombre === clienteSeleccionado)
+    : REPORTE;
+
+  const detalleDocumento = clienteSeleccionado
+    ? REPORTE_DETALLE.filter(r=>r.nombre === clienteSeleccionado)
+    : REPORTE_DETALLE;
+
+  if(clienteSeleccionado && !reporteDocumento.length){
+    alert("El cliente seleccionado no tiene datos en este reporte");
+    return;
+  }
+
   const grupos = {};
 
-  REPORTE.forEach(r=>{
+  reporteDocumento.forEach(r=>{
 
     if(!grupos[r.nombre]){
       grupos[r.nombre] = [];
@@ -1030,7 +1192,7 @@ function generarDocumento(){
 
     });
 
-  const totalKg = REPORTE
+  const totalKg = reporteDocumento
     .reduce((a,b)=>
       a + Number(b.kilos || 0)
     ,0);
@@ -1203,6 +1365,25 @@ td{
   font-size:15px;
 }
 
+.detalleDoc{
+  margin-top:16px;
+  page-break-before:auto;
+}
+
+.detalleDoc h2{
+  color:#0a7a3b;
+  margin:0 0 10px;
+  font-size:18px;
+}
+
+.detalleDoc .notaTitulo{
+  background:#eef7f0;
+  color:#0a7a3b;
+  font-weight:900;
+  padding:8px;
+  border:1px solid #cde7d4;
+}
+
 </style>
 </head>
 
@@ -1235,6 +1416,10 @@ td{
 
     <div>
       <b>Producto:</b> ${producto}
+    </div>
+
+    <div>
+      <b>Cliente:</b> ${clienteSeleccionado || "Todos"}
     </div>
 
   </div>
@@ -1348,6 +1533,48 @@ ${
 }).join("")}
 
 </div>
+
+${clienteSeleccionado ? `
+<div class="detalleDoc">
+  <h2>Detalle de notas — ${escapeHtml(clienteSeleccionado)}</h2>
+
+  ${Object.entries(
+    detalleDocumento.reduce((acc,d)=>{
+      const key = `${d.fecha}|${d.notaId || d.origen}`;
+      if(!acc[key]) acc[key] = [];
+      acc[key].push(d);
+      return acc;
+    },{})
+  ).map(([key, items])=>{
+    const totalNota = items.reduce((a,b)=>a + Number(b.kilos || 0),0);
+    const [fecha, nota] = key.split("|");
+
+    return `
+      <div class="notaTitulo">
+        Fecha: ${escapeHtml(fecha)} · ${escapeHtml(nota)} · Total: ${to2(totalNota)} kg
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Origen</th>
+            <th>Producto</th>
+            <th class="right">Kilos</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(d=>`
+            <tr>
+              <td>${escapeHtml(d.origen)}</td>
+              <td>${escapeHtml(d.producto)}</td>
+              <td class="right">${to2(d.kilos)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }).join("")}
+</div>
+` : ""}
 
 </body>
 </html>
