@@ -883,7 +883,7 @@ function renderAll(){
 
 function renderGeneral(){
 
-  const totalKg = reporteDocumento
+  const totalKg = REPORTE
     .reduce((a,b)=>
       a + Number(b.kilos || 0)
     ,0);
