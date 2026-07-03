@@ -507,15 +507,10 @@ function agruparDetallesPorProducto(items){
 
   (items || []).forEach(d=>{
     const producto = productoBonito(d.producto || "Sin producto");
-    const origen = d.origen || "";
-    const key = `${normalizeKey(producto)}|${normalizeKey(origen)}`;
+    const key = normalizeKey(producto);
 
     if(!mapa.has(key)){
       mapa.set(key,{
-        origen,
-        notaId:d.notaId || "",
-        nombre:d.nombre || "",
-        fecha:d.fecha || "",
         producto,
         kilos:0
       });
@@ -1050,20 +1045,41 @@ function renderFiltrado(){
     .sort((a,b)=> String(b.fecha).localeCompare(String(a.fecha)))
     .map(r=>{
 
-      const dets = agruparDetallesPorProducto(detallesPorFecha[r.fecha] || []);
+      const dets = detallesPorFecha[r.fecha] || [];
+      const resumenProductos = agruparDetallesPorProducto(dets);
 
       const detalleHtml = dets.length
         ? `
           <div class="detalleNota">
-            ${dets.map(d=>`
-              <div class="detalleNotaHeader">
-                <span>${escapeHtml(d.producto)}</span>
-                <span class="detalleMini">
-                  ${escapeHtml(d.origen)}
-                </span>
-                <span>${to2(d.kilos)} kg</span>
+            <div style="border:1px solid #d1d5db;background:#fafafa;padding:10px;margin-bottom:10px;">
+              <div style="font-weight:900;margin-bottom:8px;">
+                Totales por producto
               </div>
-            `).join("")}
+              ${resumenProductos.map(d=>`
+                <div>
+                  <b>Total ${escapeHtml(d.producto)}</b> = ${to2(d.kilos)} kg
+                </div>
+              `).join("")}
+            </div>
+
+            <table style="margin:0;">
+              <thead>
+                <tr>
+                  <th>Origen</th>
+                  <th>Producto</th>
+                  <th class="right">Kg</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${dets.map(d=>`
+                  <tr>
+                    <td>${escapeHtml(d.origen)}</td>
+                    <td>${escapeHtml(d.producto)}</td>
+                    <td class="right">${to2(d.kilos)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
           </div>
         `
         : `<span class="detalleMini">Sin detalle disponible</span>`;
@@ -1623,11 +1639,11 @@ ${clienteSeleccionado ? `
           <tr>
             <th>Origen</th>
             <th>Producto</th>
-            <th class="right">Kilos</th>
+            <th class="right">Kg</th>
           </tr>
         </thead>
         <tbody>
-          ${agruparDetallesPorProducto(items).map(d=>`
+          ${items.map(d=>`
             <tr>
               <td>${escapeHtml(d.origen)}</td>
               <td>${escapeHtml(d.producto)}</td>
@@ -1636,6 +1652,17 @@ ${clienteSeleccionado ? `
           `).join("")}
         </tbody>
       </table>
+
+      <div style="border:1px solid #d1d5db;background:#fafafa;padding:10px;margin:8px 0 10px;">
+        <div style="font-weight:900;margin-bottom:8px;">
+          Totales por producto
+        </div>
+        ${agruparDetallesPorProducto(items).map(d=>`
+          <div>
+            <b>Total ${escapeHtml(d.producto)}</b> = ${to2(d.kilos)} kg
+          </div>
+        `).join("")}
+      </div>
     `;
   }).join("")}
 </div>
