@@ -502,6 +502,35 @@ function descargarArchivoHTML(nombreArchivo, contenidoHTML){
   setTimeout(()=> URL.revokeObjectURL(url), 1000);
 }
 
+function agruparDetallesPorProducto(items){
+  const mapa = new Map();
+
+  (items || []).forEach(d=>{
+    const producto = productoBonito(d.producto || "Sin producto");
+    const origen = d.origen || "";
+    const key = `${normalizeKey(producto)}|${normalizeKey(origen)}`;
+
+    if(!mapa.has(key)){
+      mapa.set(key,{
+        origen,
+        notaId:d.notaId || "",
+        nombre:d.nombre || "",
+        fecha:d.fecha || "",
+        producto,
+        kilos:0
+      });
+    }
+
+    mapa.get(key).kilos += Number(d.kilos || 0);
+  });
+
+  return Array.from(mapa.values())
+    .filter(d=>Number(d.kilos || 0) !== 0)
+    .sort((a,b)=>
+      String(a.producto).localeCompare(String(b.producto),"es")
+    );
+}
+
 function nextDateISO(iso){
   const d = new Date(`${iso}T00:00:00`);
   d.setDate(d.getDate() + 1);
@@ -1021,7 +1050,7 @@ function renderFiltrado(){
     .sort((a,b)=> String(b.fecha).localeCompare(String(a.fecha)))
     .map(r=>{
 
-      const dets = detallesPorFecha[r.fecha] || [];
+      const dets = agruparDetallesPorProducto(detallesPorFecha[r.fecha] || []);
 
       const detalleHtml = dets.length
         ? `
@@ -1030,7 +1059,7 @@ function renderFiltrado(){
               <div class="detalleNotaHeader">
                 <span>${escapeHtml(d.producto)}</span>
                 <span class="detalleMini">
-                  ${escapeHtml(d.origen)}${d.notaId ? " · Nota " + escapeHtml(d.notaId) : ""}
+                  ${escapeHtml(d.origen)}
                 </span>
                 <span>${to2(d.kilos)} kg</span>
               </div>
@@ -1598,7 +1627,7 @@ ${clienteSeleccionado ? `
           </tr>
         </thead>
         <tbody>
-          ${items.map(d=>`
+          ${agruparDetallesPorProducto(items).map(d=>`
             <tr>
               <td>${escapeHtml(d.origen)}</td>
               <td>${escapeHtml(d.producto)}</td>
